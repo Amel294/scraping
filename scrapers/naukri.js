@@ -35,12 +35,7 @@ const scrapeNaukri = async (url) => {
             const jobHeaderContent = jobHeader ? jobHeader.innerHTML : "Job header not found!";
 
             const jobDesc = document.querySelector("section.styles_job-desc-container__txpYf");
-            if (jobDesc) {
-                const footer = jobDesc.querySelector("div.styles_JDC__footer__ZJnPe");
-                if (footer) footer.remove();
-            }
-            const jobDescContent = jobDesc ? jobDesc.innerHTML : "Job description not found!";
-
+            
             return { jobHeader: jobHeaderContent, jobDescription: jobDescContent };
         });
 
