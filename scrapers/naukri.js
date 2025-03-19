@@ -64,7 +64,7 @@ const scrapeNaukri = async (url) => {
             return { jobTitle, companyName, experience, salary, isRemote, locations, postedDateText, numberOfOpenings, jobDescription, role, industryType, department, employmentType, ugEducation, pgEducation, keySkills };
         });
 
-        return extractedData;
+        return {jobDetails : {extractedData}};
     } catch (error) {
         throw new Error("Scraping failed: " + error.message);
     } finally {
