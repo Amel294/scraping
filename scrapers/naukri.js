@@ -34,9 +34,9 @@ const scrapeNaukri = async (url) => {
             const jobHeader = document.querySelector("section.styles_job-header-container___0wLZ");
             const jobHeaderContent = jobHeader ? jobHeader.innerHTML : "Job header not found!";
 
-            const jobDesc = document.querySelector("section.styles_job-desc-container__txpYf");
+            const jobDescription = document.querySelector("section.styles_job-desc-container__txpYf");
             
-            return { jobHeader: jobHeaderContent, jobDescription: jobDescContent };
+            return { jobHeader: jobHeaderContent, jobDescription };
         });
 
         return extractedData;
