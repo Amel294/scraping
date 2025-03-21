@@ -15,7 +15,7 @@ const findSpecificPages = async (request) => {
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
             "--disable-gpu",
-            "--single-process",
+            "--no-zygote",
         ],
     });
 
@@ -29,49 +29,52 @@ const findSpecificPages = async (request) => {
 
         while (pagesToVisit.length > 0) {
             const { url, depth } = pagesToVisit.shift();
-            if (visitedUrls.has(url) || depth > maxDepth) continue;
-            visitedUrls.add(url);
-
-            console.log(`Crawling: ${url} (Depth: ${depth})`);
-
-            try {
-                await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-            } catch (navError) {
-                console.error(`Navigation failed for ${url}: ${navError.message}`);
+            if (visitedUrls.has(url) || depth > maxDepth || foundPages.size === targetKeywords.size) {
                 continue;
             }
 
-            const urlLower = url.toLowerCase();
-            const matchedKeyword = Array.from(targetKeywords).find(keyword => urlLower.includes(keyword));
-            if (matchedKeyword) {
-                foundPages.add(url);
-                console.log(`Found page related to "${matchedKeyword}": ${url}`);
-            }
+            visitedUrls.add(url);
+            console.log(`Crawling: ${url} (Depth: ${depth})`);
 
-            const allKeywordsMatched = targetKeywords.size > 0 && 
-                Array.from(targetKeywords).every(keyword => 
-                    Array.from(foundPages).some(page => page.toLowerCase().includes(keyword))
-                );
-            if (allKeywordsMatched) {
-                console.log("All keywords have matches. Stopping crawl.");
-                break;
-            }
+            try {
+                // Navigate with a longer timeout and minimal resource usage
+                await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-            const newLinks = await page.evaluate(() => {
-                return Array.from(document.querySelectorAll("a[href]"))
-                    .map(a => a.href.trim())
-                    .filter(link => 
-                        link.startsWith(window.location.origin) && 
-                        !link.includes("#") && 
-                        !link.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)
-                    );
-            });
-
-            newLinks.forEach(link => {
-                if (!visitedUrls.has(link) && !pagesToVisit.some(p => p.url === link)) {
-                    pagesToVisit.push({ url: link, depth: depth + 1 });
+                // Check if the current URL matches any target keywords
+                const urlLower = url.toLowerCase();
+                const matchedKeyword = Array.from(targetKeywords).find(keyword => urlLower.includes(keyword));
+                if (matchedKeyword) {
+                    foundPages.add(url);
+                    console.log(`Found page related to "${matchedKeyword}": ${url}`);
                 }
-            });
+
+                // Early exit if all keywords are matched
+                if (foundPages.size === targetKeywords.size) {
+                    console.log("All keywords have matches. Stopping crawl.");
+                    break;
+                }
+
+                // Extract new links
+                const newLinks = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll("a[href]"))
+                        .map(a => a.href.trim())
+                        .filter(link => 
+                            link.startsWith(window.location.origin) && 
+                            !link.includes("#") && 
+                            !link.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i)
+                        );
+                });
+
+                // Add new links to the queue
+                newLinks.forEach(link => {
+                    if (!visitedUrls.has(link) && !pagesToVisit.some(p => p.url === link)) {
+                        pagesToVisit.push({ url: link, depth: depth + 1 });
+                    }
+                });
+            } catch (navError) {
+                console.error(`Navigation failed for ${url}: ${navError.message}`);
+                continue; // Skip this page and move to the next
+            }
         }
 
         await browser.close();
