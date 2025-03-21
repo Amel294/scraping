@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const scrapeNaukri = require("./scrapers/naukri"); // Import the Naukri scraper
 const extractEmailsFromWebsite = require("./scrapers/emailFromWebiste");
+const findAllPages = require("./scrapers/findAllPages");
+const findSpecificPages = require("./scrapers/findSpecificPages");
 require("dotenv").config(); // Load environment variables
 
 const app = express();
@@ -45,6 +47,40 @@ app.post("/emailFromWebsite", async (req, res) => {
         data = await extractEmailsFromWebsite(url);
 
         res.json(data);
+    } catch (error) {
+        console.error("Scraper error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+app.post("/findAllPages", async (req, res) => {
+    const { url } = req.body;
+
+    if (!url) {
+        return res.status(400).json({ error: "Type and URL are required!" });
+    }
+
+    try {
+        let data;
+
+        data = await findAllPages(url);
+
+        res.json(data);
+    } catch (error) {
+        console.error("Scraper error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+app.post("/findSpecificPages", async (req, res) => {
+    const { url, lookingFor } = req.body;
+
+    if (!url || !lookingFor) {
+        return res.status(400).json({ error: "URL and lookingFor are required!" });
+    }
+
+    try {
+        const request = { url, lookingFor }; // Construct the request object
+        const foundPages = await findSpecificPages(request); // Get only found pages
+        res.json(foundPages); // Send only the array of found pages
     } catch (error) {
         console.error("Scraper error:", error);
         res.status(500).json({ error: error.message });
