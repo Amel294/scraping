@@ -10,14 +10,19 @@ const findSpecificPages = async (request) => {
 
     const browser = await puppeteer.launch({
         headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--single-process",
+        ],
     });
 
     const visitedUrls = new Set();
     const pagesToVisit = [{ url: startUrl, depth: 0 }];
-    const siteMap = {}; // Used internally, not returned
-    const targetKeywords = new Set(lookingFor.map(k => k.toLowerCase())); // Case-insensitive keywords
-    const foundPages = new Set(); // Track URLs matching keywords
+    const targetKeywords = new Set(lookingFor.map(k => k.toLowerCase()));
+    const foundPages = new Set();
 
     try {
         const page = await browser.newPage();
@@ -29,11 +34,13 @@ const findSpecificPages = async (request) => {
 
             console.log(`Crawling: ${url} (Depth: ${depth})`);
 
-            await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+            try {
+                await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+            } catch (navError) {
+                console.error(`Navigation failed for ${url}: ${navError.message}`);
+                continue;
+            }
 
-            if (!siteMap[url]) siteMap[url] = [];
-
-            // Check if the current URL contains any of the target keywords
             const urlLower = url.toLowerCase();
             const matchedKeyword = Array.from(targetKeywords).find(keyword => urlLower.includes(keyword));
             if (matchedKeyword) {
@@ -41,7 +48,6 @@ const findSpecificPages = async (request) => {
                 console.log(`Found page related to "${matchedKeyword}": ${url}`);
             }
 
-            // Stop crawling if all keywords have at least one match
             const allKeywordsMatched = targetKeywords.size > 0 && 
                 Array.from(targetKeywords).every(keyword => 
                     Array.from(foundPages).some(page => page.toLowerCase().includes(keyword))
@@ -64,16 +70,15 @@ const findSpecificPages = async (request) => {
             newLinks.forEach(link => {
                 if (!visitedUrls.has(link) && !pagesToVisit.some(p => p.url === link)) {
                     pagesToVisit.push({ url: link, depth: depth + 1 });
-                    siteMap[url].push(link);
                 }
             });
         }
 
-        return Array.from(foundPages); // Only return foundPages
-    } catch (error) {
-        throw new Error("Crawling failed: " + error.message);
-    } finally {
         await browser.close();
+        return Array.from(foundPages);
+    } catch (error) {
+        await browser.close();
+        throw new Error("Crawling failed: " + error.message);
     }
 };
 
